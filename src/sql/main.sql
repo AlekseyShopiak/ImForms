@@ -146,7 +146,8 @@ ENGINE = InnoDB;
 -- -----------------------------------------------------
 CREATE TABLE IF NOT EXISTS `mydb`.`actions` (
   `id` INT NOT NULL,
-  `actedAt` DATETIME NOT NULL,
+--  `actedAt` DATETIME NOT NULL,
+ `actedAt` INT NOT NULL,
   `State_id` INT NOT NULL,
   `actionType_id` INT NOT NULL,
   PRIMARY KEY (`id`),
