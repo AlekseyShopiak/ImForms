@@ -7,13 +7,3 @@ app.use(express.json());
 app.use('/api', require('./router'));
 
 db.connect(() => app.listen(PORT, () => console.log(`Server is running on localhost:${PORT}`)));
-
-
-
-
-
-
-
-
-
-
