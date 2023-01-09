@@ -211,5 +211,150 @@ SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
 
 ```
 
-- RESTfull сервіс для управління даними
 
+# RESTfull сервіс для управління даними
+
+## Файл підключення до бази даних
+
+```js
+const mysql = require('mysql');
+
+const db = mysql.createConnection({
+    host: 'localhost',
+    user: 'root',
+    password: '0000',
+    database: 'mydb'
+})
+
+module.exports = db;
+```
+## Кореневий файл серверу
+
+```js
+const express = require('express');
+const db = require('./config');
+const app = express();
+const PORT = 3500;
+
+app.use(express.json());
+app.use('/api', require('./router'));
+
+db.connect(() => app.listen(PORT, () => console.log(`Server is running on localhost:${PORT}`)));
+```
+
+##  Файл з функцією для отримання поточної дати
+
+ ```js
+function getDT () {
+  const date_ob = new Date();
+
+  const date = ("0" + date_ob.getDate()).slice(-2);
+  const month = ("0" + (date_ob.getMonth() + 1)).slice(-2);
+  const year = date_ob.getFullYear();
+  const hours = date_ob.getHours();
+  const minutes = date_ob.getMinutes();
+  const seconds = date_ob.getSeconds();
+
+  const res =(year+"-"+month+"-"+date+" "+hours+":"+minutes+":"+seconds).toString();
+  return res; 
+}
+
+module.exports = getDT();
+ ```
+
+##  Файл з роутером та контролерами для обробки запитів
+
+ ```js
+const getDT = require("./getter");
+const express = require('express');
+const router = express.Router();
+const db = require('./config');
+
+const getAllActions = (req, res) => {
+    const query = `SELECT * FROM actions;`;
+    db.query(query, (err, result) => {
+        if (err) return res.status(500).json(err);
+        res.status(200).json(result);
+    });
+};
+
+const getAction = (req, res) => {
+    const query = `SELECT * FROM actions WHERE id=${req.params.id}`;
+    db.query(query, (err, result) => {
+        if (err) return res.status(500).json(err);
+        if(result.length){ res.status(200).json(result) }
+        else{ res.status(404).json(`Action №${req.params.id} doesn't exist`) }
+    });
+};
+
+const addAction = (req, res) => {
+    const {state_id, actionType_id} = req.body;
+    let id=1;
+    if(!state_id && !actionType_id){
+        return res
+        .status(400)
+        .json({ message: "Too few items. State and action type are required" });
+    }
+
+    //getting max id and incrementing it
+    const queryid = `SELECT max(id) as id FROM actions`;
+    db.query(queryid, (err, result) => {
+        if (err) return res.status(500).json(err);
+        if(result[0]){id += result[0].id;}
+
+        //checking if state_id is correct
+        const querystate = `SELECT * FROM state WHERE id=${state_id}`;
+        db.query(querystate, (err, result) => {
+            if (err) return res.status(500).json(err);
+            if(!result.length) return res.status(406).json(`There is no id:${state_id} in state table`);
+
+            //checking if actionType_id is correct
+            const queryactiontype = `SELECT * FROM actionType WHERE id=${actionType_id}`;
+            db.query(queryactiontype, (err, result) => {
+                if (err) return res.status(500).json(err);
+                if(!result.length) return res.status(406).json(`There is no id:${actionType_id} in actionType table`);
+            
+                //inserting new action in action table
+                const query = `INSERT INTO actions VALUES ( ${id}, \"${getDT}\", ${state_id}, ${actionType_id});`;
+                db.query(query, (err, result) => {
+                    if (err) return res.status(500).json(err);
+                    res.status(201).json(`Action №${id} was created`);
+                });
+            });
+        });
+    });    
+};
+
+const deleteAction = (req, res) => {
+    const queryid = `SELECT * FROM actions WHERE id=${req.params.id}`;
+    db.query(queryid, (err, result) => {
+        if (err) return res.status(500).json(err);
+
+        if(result.length >0){
+            const query = `DELETE FROM actions WHERE id=${req.params.id}`;
+            db.query(query, (err, result) => {
+                if (err) return res.status(500).json(err);
+                res.status(200).json(`Action №${req.params.id} was deleted`);
+            });
+        }
+        else{res.status(404).json(`Action №${req.params.id} doesn't exist`);}
+    });
+};
+
+const deleteAllActions = (req, res) => {
+    const query = `DELETE FROM actions WHERE id>0;`;
+    db.query(query, (err, result) => {
+        if (err) return res.status(500).json(err);
+        res.status(200).json("All actions were deleted");
+    });
+};
+
+router
+    .get("/actions", getAllActions)
+    .get("/action/:id", getAction)
+    .post("/action", addAction)
+    .delete("/action/:id", deleteAction)
+    .delete("/actions", deleteAllActions);
+
+module.exports = router;
+ ```
